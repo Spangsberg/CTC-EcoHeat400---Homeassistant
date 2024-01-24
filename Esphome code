@@ -304,9 +304,7 @@ number:
     lambda: "return  x * 0.1; "
     write_lambda: |-
       ESP_LOGD("main","Modbus Number incoming value = %f",x);
-      uint16_t c_capacity = x * 10 ;
-      payload.push_back(c_capacity);
-      return x * 1.0 ;
+      return x * 10.0 ;
     ## multiply is ignored because lamdba is used
     multiply: 1
     
@@ -322,10 +320,7 @@ number:
     step: 1
     lambda: "return  x * 0.1; "
     write_lambda: |-
-      ESP_LOGD("main","Modbus Number incoming value = %f",x);
-      uint16_t c_capacity = x * 10 ;
-      payload.push_back(c_capacity);
-      return x * 1.0 ;
+      return x * 10.0 ;
     ## multiply is ignored because lamdba is used
     multiply: 1
 
