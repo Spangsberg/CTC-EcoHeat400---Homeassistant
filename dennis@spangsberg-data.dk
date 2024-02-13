@@ -3,7 +3,7 @@ esphome:
   friendly_name: CTC-Ecohet412-v2
 
 esp8266:
-  board: esp01_1m
+  board: esp12e
 
 # Enable logging
 logger:
@@ -13,19 +13,23 @@ api:
 
 ota:
 
+mdns:
 
 wifi:
   ssid: 'SSID'
-  password: '<Password>'
-  
-
+  password: '<password>'
+    
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: "Esphome-Web-064D30"
-    password: "KWW0DapBzwsM"
+ # ap:
+ #   ssid: "Esphome-Web-064D30"
+ #   password: "KWW0DapBzwsM"
 
-captive_portal:    
+captive_portal:
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
 
 dallas:
   - pin: 
@@ -43,8 +47,10 @@ uart:
   stop_bits: 1
 
 modbus:
-  flow_control_pin: 12
+  #flow_control_pin: 12
+  send_wait_time: 500ms
   id: modbus1
+  
 
 modbus_controller:
   - id: epever
@@ -70,6 +76,9 @@ select:
     optionsmap:
       "Blocked": 0
       "Allowed": 1
+
+  
+
 switch:
   - platform: gpio
     name: "SMART-A"
@@ -83,7 +92,7 @@ switch:
   
   - platform: template
     name: "SMART-A+B"
-
+    id: smart_ab
     turn_on_action:
       - switch.turn_on: smart_a
       - switch.turn_on: smart_b
@@ -91,11 +100,27 @@ switch:
       - switch.turn_off: smart_a
       - switch.turn_off: smart_b
 
+  - platform: template
+    name: "Normal"
+    id: smart_normal
+    turn_on_action:
+      - switch.turn_off: smart_a
+      - switch.turn_off: smart_b    
+
+button:  
+  - platform: template
+    name: "Reset Alarm"
+    on_press:      
+      then:
+        number.set:
+          id: alarm_reset
+          value: 43605
 
 
 
 sensor:
-
+  
+     
   
 
   - platform: modbus_controller
@@ -116,17 +141,17 @@ sensor:
 
   
 
-  - platform: modbus_controller
-    modbus_controller_id: epever
-    name: "Adjustment"
-    id: adjustment
-    register_type: read
-    address: 0x0000F04D
-    state_class: "measurement"
-    accuracy_decimals: 0
-    value_type: S_WORD
-    filters:
-      - multiply: 0.1
+  #- platform: modbus_controller
+  #  modbus_controller_id: epever
+  #  name: "Adjustment"
+  #  id: adjustment
+  #  register_type: read
+  #  address: 0x0000F04D
+  #  state_class: "measurement"
+  #  accuracy_decimals: 0
+  #  value_type: S_WORD
+  #  filters:
+  #    - multiply: 0.1
 
   - platform: modbus_controller
     modbus_controller_id: epever
@@ -141,6 +166,20 @@ sensor:
     value_type: S_WORD
     filters:
       - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: epever
+    name: "Setpoint Lower Tank"
+    id: setpoint_lower
+    register_type: read
+    address: 62274
+    unit_of_measurement: "°C"
+    device_class: "temperature"
+    state_class: "measurement"
+    accuracy_decimals: 2
+    value_type: S_WORD
+    filters:
+      - multiply: 0.1    
 
   - platform: modbus_controller
     modbus_controller_id: epever
@@ -186,6 +225,7 @@ sensor:
     filters:
       - multiply: 0.1     
 
+  
   
 
   - platform: modbus_controller
@@ -246,33 +286,7 @@ sensor:
     filters:
       - multiply: 0.1
 
-  - platform: modbus_controller
-    modbus_controller_id: epever
-    name: "Condenser in"
-    id: con_in
-    register_type: read
-    address: 0x025D
-    unit_of_measurement: "°C"
-    device_class: "temperature"
-    state_class: "measurement"
-    accuracy_decimals: 2
-    value_type: S_WORD
-    filters:
-      - multiply: 0.1
-
-  - platform: modbus_controller
-    modbus_controller_id: epever
-    name: "Condenser out"
-    id: con_out
-    register_type: read
-    address: 0x025C
-    unit_of_measurement: "°C"
-    device_class: "temperature"
-    state_class: "measurement"
-    accuracy_decimals: 2
-    value_type: S_WORD
-    filters:
-      - multiply: 0.1      
+  
 
   - platform: modbus_controller
     modbus_controller_id: epever
@@ -285,51 +299,67 @@ sensor:
 
   
 
-  
+  - platform: modbus_controller
+    modbus_controller_id: epever
+    name: "Alarm Status"
+    id: alarm_status
+    register_type: holding
+    address: 0x0000FDE9
+    value_type: U_WORD     
+
+  - platform: modbus_controller
+    name: "Alarm References"
+    address: 65010
+    register_type: holding
+    register_count: 50
+    value_type: U_WORD
+
 
   
     
 number:
-  
   - platform: modbus_controller
+    use_write_multiple: true
     modbus_controller_id: epever
     id: inclination_number
     name: "Kurvehældning"
-    address: 0x0000F049
-    value_type: U_WORD
+    #unit_of_measurement: "C"
+    address: 0xF049
+    mode: box
+    #accuracy_decimals: 0
     min_value: 25
     max_value: 85
-    mode: box
     step: 1
-    lambda: "return  x * 0.1; "
-    write_lambda: |-
-      ESP_LOGD("main","Modbus Number incoming value = %f",x);
-      uint16_t c_capacity = x * 10 ;
-      payload.push_back(c_capacity);
-      return x * 1.0 ;
-    ## multiply is ignored because lamdba is used
-    multiply: 1
-    
+    value_type: S_WORD
+    multiply: 10
+
   - platform: modbus_controller
+    use_write_multiple: true
     modbus_controller_id: epever
     id: forskydning
     name: "Forskydning"
-    address: 0x0000F04D
-    value_type: S_WORD
+    #unit_of_measurement: "C"
+    #accuracy_decimals: 0
+    address: 0xF04D
+    mode: box
     min_value: -20
     max_value: 20
-    mode: box
     step: 1
-    lambda: "return  x * 0.1; "
-    write_lambda: |-
-      ESP_LOGD("main","Modbus Number incoming value = %f",x);
-      uint16_t c_capacity = x * 10 ;
-      payload.push_back(c_capacity);
-      return x * 1.0 ;
-    ## multiply is ignored because lamdba is used
-    multiply: 1
+    value_type: S_WORD
+    multiply: 10  
 
   
+  
+
+  - platform: modbus_controller
+    modbus_controller_id: epever
+    name: "Alarm Reset"
+    id: alarm_reset
+    register_type: holding
+    address: 0x0000FDE9
+    value_type: U_WORD 
+    
+
 
 binary_sensor:
   - platform: modbus_controller
@@ -337,6 +367,7 @@ binary_sensor:
     id: brine_pump
     name: "Brine pumpe"
     register_type: read
-    address: 0x028A
-    bitmask: 0x30 #(bit 3)
- 
+    address: 62117
+    #address: 0x028A
+    #bitmask: 0x30 #(bit 3)
+
